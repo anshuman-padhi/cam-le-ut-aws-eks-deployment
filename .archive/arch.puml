@@ -1,0 +1,108 @@
+@startuml CAM-LE-Architecture
+!theme aws-orange
+
+title Boomi CAM LE 6.2 - AWS EKS Architecture (Untethered Mode)
+
+skinparam componentStyle rectangle
+skinparam defaultTextAlignment center
+skinparam linetype ortho
+
+' External Users
+actor "API Clients" as users <<External>>
+actor "Administrators" as admin <<External>>
+
+' AWS Cloud
+rectangle "AWS Cloud" #EFEFEF {
+    
+    ' VPC
+    rectangle "VPC - 10.0.0.0/16" #E3F2FD {
+        
+        ' Public Subnet
+        rectangle "Public Subnets (Multi-AZ)" #FFF3E0 {
+            component "**Traffic Manager NLB**\nPort 443\nInternet-Facing" as tmLB #FF9900
+            component "**Config UI NLB**\nPort 443\nInternet-Facing" as cuiLB #FF9900
+        }
+        
+        ' Private Subnet
+        rectangle "Private Subnets (Multi-AZ)" #F3E5F5 {
+            
+            ' EKS Cluster
+            rectangle "EKS Cluster - Kubernetes 1.28+" #D1C4E9 {
+                
+                ' Frontend Services
+                package "Frontend Services" #E8F5E9 {
+                    component "**Traffic Manager**\n2 replicas\nCPU: 500m-2000m\nMemory: 1-2Gi\nPort: 8080" as tm #4CAF50
+                    component "**Config UI**\n1 replica\nCPU: 250m-500m\nMemory: 512Mi-1Gi\nPort: 3000, 443" as cui #2196F3
+                }
+                
+                ' Backend Services  
+                package "Backend Services" #FFEBEE {
+                    component "**Platform API**\n1 replica\nCPU: 500m-1000m\nMemory: 1-2Gi\nPort: 8080\n⚠️ Internal Only" as pa #FF9800
+                    component "**Platform API NLB**\nPort 8080\nInternal" as paLB #E65100
+                }
+                
+                ' Data & Cache Layer
+                package "Data & Cache Layer" #F3E5F5 {
+                    component "**Apache Ignite Cache**\nStatefulSet: 3 replicas\nCPU: 500m-1000m\nMemory: 2-3Gi\nPersistence: Enabled" as cache #9C27B0
+                    component "**Loader**\n1 replica\nCPU: 250m-1000m\nMemory: 512Mi-2Gi" as loader #00BCD4
+                    component "**Loader Cron Jobs**\nFull Sync: Daily 2 AM\nDelta Sync: Every 15 min\nOn-Prem Load: Every 15 min" as lcron #00ACC1
+                }
+            }
+            
+            ' Database Layer
+            rectangle "Aurora MySQL Cluster" #FFEBEE {
+                database "**Primary Instance**\ndb.r6g.large\nWriter Endpoint\nPort: 3306" as dbPrimary #F44336
+                database "**Replica Instance**\ndb.r6g.large\nReader Endpoint\nMulti-AZ" as dbReplica #E57373
+            }
+        }
+        
+        ' Container Registry
+        rectangle "Amazon ECR" #E8F5E9 {
+            storage "**Container Images**\n\n• apim-le-toolkit\n• apim-le-trafficmanager\n• apim-le-platformapi\n• apim-le-configui\n• apim-le-cache\n• apim-le-loader\n• apim-le-loader-cron\n• apim-jre-base\n• cam-le-logsync" as ecr #795548
+        }
+    }
+}
+
+' External to LoadBalancers
+users -down-> tmLB : "HTTPS :443\nAPI Requests"
+admin -down-> cuiLB : "HTTPS :443\nAdmin Console"
+
+' LoadBalancer to Pods
+tmLB -down-> tm : Routes
+cuiLB -down-> cui : Routes
+paLB .down.> pa : Routes
+
+' Frontend to Backend
+cui -right-> paLB : "REST API\nManagement\nOperations"
+tm -down-> paLB : "Internal API\nRuntime\nOperations"
+
+' Cache Interactions
+tm .down.> cache : "Read Cache\nAPI Definitions"
+pa .down.> cache : "Read Cache\nConfigurations"
+loader -right-> cache : "Populate Cache\nSync from DB"
+
+' Cron Job Triggers
+lcron .down.> loader : "Scheduled\nTriggers"
+
+' Database Connections
+tm -down-> dbPrimary : "MySQL :3306\nRead API Data"
+pa -down-> dbPrimary : "MySQL :3306\nRead/Write Config"
+loader -down-> dbPrimary : "MySQL :3306\nRead for Sync"
+dbPrimary .right.> dbReplica : "Async\nReplication"
+
+' ECR Image Pulls
+tm .up.> ecr : "Pull Images"
+pa .up.> ecr : "Pull Images"
+cui .up.> ecr : "Pull Images"
+cache .up.> ecr : "Pull Images"
+loader .up.> ecr : "Pull Images"
+
+' Legend
+legend right
+  |= **Symbol** |= **Meaning** |
+  | —> | Runtime Data Flow |
+  | ···> | Read Operations / Image Pulls |
+  | ⚠️ | Internal Only (Not Internet-Facing) |
+endlegend
+
+@enduml
