@@ -1,0 +1,56 @@
+# CAM LE AWS Deployment - GitIgnore
+
+# Configuration files with sensitive data
+*.env
+!*.env.template
+my-config.env
+db-config.env
+ecr-config.env
+custom-cam-le.env
+customvalues.env
+
+# Generated files
+cam-le-untethered-values.yaml
+*.bak
+deployment-summary.txt
+ekscluster-config.yaml
+db-init-job.yaml
+
+# SSL/TLS keystores and certificates
+keystores/
+*.p12
+*.jks
+*.pem
+*.crt
+*.key
+
+# Logs
+*.log
+logs/
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+*.swp
+*~
+
+# OS files
+.DS_Store
+Thumbs.db
+*.pid
+
+# IDE files
+.vscode/
+.idea/
+*.iml
+.project
+.classpath
+.settings/
+
+# Helm related
+charts/*/charts/
+*.tgz
+
+# Kubernetes secrets
+*-secret.yaml
