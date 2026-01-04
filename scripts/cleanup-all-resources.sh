@@ -32,16 +32,24 @@ fi
 # Load configuration
 if [ -f "my-config.env" ]; then
     source my-config.env
+elif [ -f "../my-config.env" ]; then
+    source ../my-config.env
 elif [ -f "custom-cam-le.env" ]; then
     source custom-cam-le.env
+elif [ -f "../custom-cam-le.env" ]; then
+    source ../custom-cam-le.env
 fi
 
 if [ -f "db-config.env" ]; then
     source db-config.env
+elif [ -f "../db-config.env" ]; then
+    source ../db-config.env
 fi
 
 if [ -f "ecr-config.env" ]; then
     source ecr-config.env
+elif [ -f "../ecr-config.env" ]; then
+    source ../ecr-config.env
 fi
 
 # Set defaults if not configured
