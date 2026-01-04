@@ -208,7 +208,7 @@ The IAM user or role requires permissions for:
 Obtain the Boomi CAM LE 6.2 package and navigate to the deployment directory:
 
 ```bash
-cd /path/to/Boomi_Cam_Local_6_2_0_GA_346/install-untethered-camle-aws
+cd /path/to/Boomi_Cam_Local_6_2_0_GA_346/cam-le-ut-aws-eks-deployment
 ```
 
 ### Step 2: Create Configuration File
@@ -525,7 +525,7 @@ The cleanup script permanently deletes:
 
 ```bash
 # Navigate to deployment folder
-cd install-untethered-camle-aws
+cd cam-le-ut-aws-eks-deployment
 
 # Run cleanup script
 ./cleanup-all-resources.sh
@@ -640,10 +640,10 @@ cat custom-cam-le.env
 
 # If empty or missing, regenerate:
 cd ..  # Go to parent directory
-./scripts/customize.sh -u -k -s -b > install-untethered-camle-aws/custom-values.txt
+./scripts/customize.sh -u -k -s -b > cam-le-ut-aws-eks-deployment/custom-values.txt
 
 # Update Helm values and redeploy
-cd install-untethered-camle-aws
+cd cam-le-ut-aws-eks-deployment
 ./deploy-cam-le-untethered-complete.sh --start-from 9
 ```
 
