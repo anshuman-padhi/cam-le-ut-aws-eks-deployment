@@ -129,11 +129,11 @@ kubectl autoscale deployment trafficmanager \
 
 #### Scaling Summary Table
 
-| QPS Target | Traffic Manager Replicas | Aurora Instance | Cache Replicas | Estimated Cost/Month |
-|------------|-------------------------|-----------------|----------------|---------------------|
-| **500-750** (Current) | 2 | db.r6g.large | 3 | ~$400-500 |
-| **1500** | 6 | db.r6g.2xlarge | 3 | ~$900-1100 |
-| **3000** | 12 | db.r6g.4xlarge | 3 | ~$1800-2200 |
+| QPS Target | Traffic Manager Replicas | Aurora Instance | Cache Replicas |
+|------------|-------------------------|-----------------|----------------|
+| **500-750** (Current) | 2 | db.r6g.large | 3 |
+| **1500** | 6 | db.r6g.2xlarge | 3 |
+| **3000** | 12 | db.r6g.4xlarge | 3 |
 
 > **Note**: Performance varies based on payload size, API complexity, and backend response times. These estimates assume medium-complexity APIs with sub-100ms backend latency.
 
