@@ -22,14 +22,15 @@ A complete deployment includes:
 ## Table of Contents
 
 1. [Architecture Overview](#architecture-overview)
-2. [Prerequisites](#prerequisites)
-3. [Quick Start Installation](#quick-start-installation)
-4. [Configuration Guide](#configuration-guide)
-5. [Validation and Testing](#validation-and-testing)
-6. [Accessing CAM LE](#accessing-cam-le)
-7. [Uninstallation](#uninstallation)
-8. [Troubleshooting](#troubleshooting)
-9. [Best Practices](#best-practices)
+2. [Performance Capacity and Scaling](#performance-capacity-and-scaling)
+3. [Prerequisites](#prerequisites)
+4. [Quick Start Installation](#quick-start-installation)
+5. [Configuration Guide](#configuration-guide)
+6. [Validation and Testing](#validation-and-testing)
+7. [Accessing CAM LE](#accessing-cam-le)
+8. [Uninstallation](#uninstallation)
+9. [Troubleshooting](#troubleshooting)
+10. [Best Practices](#best-practices)
 
 ---
 
@@ -51,6 +52,97 @@ CAM LE deployed on AWS EKS consists of the following components:
 | **Cache** | Distributed cache - API definitions, tokens | ClusterIP |
 | **Loader** | Data sync - keeps cache up-to-date | ClusterIP |
 | **Aurora MySQL** | Persistent storage - all configurations | Private |
+
+### Performance Capacity and Scaling
+
+#### Current Configuration Capacity
+
+The default deployment configuration supports:
+
+| Metric | Capacity | Notes |
+|--------|----------|-------|
+| **Queries Per Second (QPS)** | 500-750 sustained | Based on 2 Traffic Manager replicas |
+| **Concurrent Connections** | ~100-150 | Limited by database and pod resources |
+| **Database Connections** | 92 active / 200 max | db.r6g.large capacity |
+| **Use Case** | Dev/Test, Light Production | Suitable for staging environments |
+
+**Component Configuration**:
+- Traffic Manager: 2 replicas (500m-2000m CPU, 1-2Gi RAM)
+- Platform API: 1 replica (500m-1000m CPU, 1-2Gi RAM, internal-only)
+- Config UI: 1 replica (250m-500m CPU, 512Mi-1Gi RAM)
+- Cache: 3 replicas (500m-1000m CPU, 2-3Gi RAM)
+- Aurora MySQL: db.r6g.large (2 vCPU, 16GB RAM, Multi-AZ)
+
+#### Scaling to 1500 QPS
+
+To handle **1500 QPS** sustained traffic, apply these upgrades:
+
+**1. Scale Traffic Manager Pods**
+
+Update `cam-le-untethered-values.yaml`:
+```yaml
+trafficmanager:
+  replicas: 6  # Increase from 2 to 6
+  resources:
+    requests:
+      cpu: "500m"
+      memory: "1Gi"
+    limits:
+      cpu: "2000m"
+      memory: "2Gi"
+```
+
+**2. Upgrade Aurora Database**
+
+```bash
+# Upgrade to db.r6g.2xlarge (8 vCPU, 64GB RAM)
+aws rds modify-db-instance \
+  --db-instance-identifier cam-le-aurora-primary \
+  --db-instance-class db.r6g.2xlarge \
+  --apply-immediately
+
+# Also upgrade replica
+aws rds modify-db-instance \
+  --db-instance-identifier cam-le-aurora-replica \
+  --db-instance-class db.r6g.2xlarge \
+  --apply-immediately
+```
+
+**3. Deploy Across Multiple Availability Zones**
+
+For production resilience, configure EKS across 3 AZs in `ekscluster-config.yaml`:
+```yaml
+availabilityZones: 
+  - us-east-1a
+  - us-east-1b
+  - us-east-1c
+```
+
+**4. Enable Horizontal Pod Autoscaling (Optional)**
+
+```bash
+kubectl autoscale deployment trafficmanager \
+  --namespace camle \
+  --min=4 --max=12 \
+  --cpu-percent=70
+```
+
+#### Scaling Summary Table
+
+| QPS Target | Traffic Manager Replicas | Aurora Instance | Cache Replicas | Estimated Cost/Month |
+|------------|-------------------------|-----------------|----------------|---------------------|
+| **500-750** (Current) | 2 | db.r6g.large | 3 | ~$400-500 |
+| **1500** | 6 | db.r6g.2xlarge | 3 | ~$900-1100 |
+| **3000** | 12 | db.r6g.4xlarge | 3 | ~$1800-2200 |
+
+> **Note**: Performance varies based on payload size, API complexity, and backend response times. These estimates assume medium-complexity APIs with sub-100ms backend latency.
+
+#### Performance Optimization Tips
+
+1. **Connection Pool Tuning**: Current deployment uses 2x default connection pools (16 vs 8). Acceptable for medium load.
+2. **Cache Hit Ratio**: Monitor cache performance; 90%+ hit ratio is optimal
+3. **Database Query Optimization**: Enable slow query logging for queries >100ms
+4. **Multi-AZ Deployment**: Distribute pods across availability zones for fault tolerance
 
 ---
 
